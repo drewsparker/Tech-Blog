@@ -5,12 +5,7 @@
 *A mysql database and CMS-style Blog built using Model View Controller (MVC) paradigm. Built using MySQL2, Express, Sequelize, Bulma, Handlebars and dotenv*
 
 ### Application Deployment
-
-https://mvc-tech-blog.herokuapp.com/
-
-### Application Screenshot
-
-![](images/mvc-tech-blog.png)
+https://drewsparker-tech-blog.herokuapp.com/
   
 ### User Story
 
