@@ -4,7 +4,7 @@ const { Post, User, Comment } = require('../models');
 
 router.get('/', (req, res) => {
     console.log(req.session);
-    
+  // Get all projects and JOIN with user data
     Post.findAll({
       attributes: [
         'id',
@@ -27,8 +27,12 @@ router.get('/', (req, res) => {
         }
       ]
     })
-      .then(dbPostData => {
-        const posts = dbPostData.map(post => post.get({ plain: true }));
+      .then(dbData => {
+        let posts;
+        dbData.forEach(element => {
+          post.push(element.get({ plain:true })) 
+        });
+        // pass serialized data and session flag into template
         res.render('homepage', {
             posts,
             loggedIn: req.session.loggedIn
@@ -39,7 +43,7 @@ router.get('/', (req, res) => {
         res.status(500).json(err);
       });
   });
-
+// Use session ID to find the logged in user
 router.get('/login', (req, res) => {
     if (req.session.loggedIn) {
       res.redirect('/');
@@ -93,7 +97,6 @@ router.get('/login', (req, res) => {
         // serialize the data
         const post = dbPostData.get({ plain: true });
   
-        // pass data to template
         res.render('single-post', {
             post,
             loggedIn: req.session.loggedIn

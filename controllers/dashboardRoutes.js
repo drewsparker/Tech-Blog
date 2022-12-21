@@ -3,10 +3,10 @@ const sequelize = require('../config/connection');
 const { Post, User, Comment } = require('../models');
 const withAuth = require('../utils/auth');
 
+// Get all and join with data
 router.get('/', withAuth, (req, res) => {
     Post.findAll({
       where: {
-        // use the ID from the session
         user_id: req.session.user_id
       },
       attributes: [
@@ -31,8 +31,9 @@ router.get('/', withAuth, (req, res) => {
       ]
     })
       .then(dbPostData => {
-        // serialize data before passing to template
         const posts = dbPostData.map(post => post.get({ plain: true }));
+
+        // pass serialized data so the template can read it
         res.render('dashboard', { posts, loggedIn: true });
       })
       .catch(err => {
@@ -72,8 +73,6 @@ router.get('/', withAuth, (req, res) => {
           res.status(404).json({ message: 'No post found with this id' });
           return;
         }
-  
-        // serialize the data
         const post = dbPostData.get({ plain: true });
 
         res.render('edit-post', {
@@ -87,10 +86,12 @@ router.get('/', withAuth, (req, res) => {
       });
 });
 
+// Create a new post with authorization 
+
 router.get('/create/', withAuth, (req, res) => {
     Post.findAll({
       where: {
-        // use the ID from the session
+        // Use the user's session ID
         user_id: req.session.user_id
       },
       attributes: [
@@ -115,7 +116,6 @@ router.get('/create/', withAuth, (req, res) => {
       ]
     })
       .then(dbPostData => {
-        // serialize data before passing to template
         const posts = dbPostData.map(post => post.get({ plain: true }));
         res.render('create-post', { posts, loggedIn: true });
       })
