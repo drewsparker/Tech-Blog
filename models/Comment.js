@@ -31,7 +31,7 @@ Comment.init(
         type: DataTypes.STRING,
         allowNull: false,
         validate: {
-            len: [1]
+          notEmpty: true
         }
       }
   },
