@@ -8,23 +8,28 @@ router.get("/", (req, res) => {
   Post.findAll({
     attributes: ["id", "title", "created_at", "post_content"],
     order: [["created_at", "DESC"]],
-    include: [
-      // Comment model here -- attached username to comment
-      {
-        model: Comment,
-        attributes: ["id", "comment_text", "post_id", "user_id", "created_at"],
-        include: {
-          model: User,
-          attributes: ["username", "twitter", "github"],
-        },
-      },
-      {
-        model: User,
-        attributes: ["username", "twitter", "github"],
-      },
-    ],
   })
-    .then((dbPostData) => res.json(dbPostData))
+    .then((posts) => {
+      const postPromises = posts.map((post) => {
+        return Comment.findAll({
+          where: {
+            post_id: post.id,
+          },
+          include: [
+            {
+              model: User,
+              attributes: ["username", "twitter", "github"],
+            },
+          ],
+        }).then((comments) => {
+          post.dataValues.comments = comments;
+          return post;
+        });
+      });
+      Promise.all(postPromises).then((postData) => {
+        res.json(postData);
+      });
+    })
     .catch((err) => {
       console.log(err);
       res.status(500).json(err);
@@ -32,25 +37,25 @@ router.get("/", (req, res) => {
 });
 
 router.get("/:id", (req, res) => {
+  const query = `
+    SELECT p.id, p.title, p.created_at, p.post_content, 
+           u1.username AS post_author, u1.twitter AS post_twitter, u1.github AS post_github,
+           c.id AS comment_id, c.comment_text, c.created_at,
+           u2.username AS comment_author, u2.twitter AS comment_twitter, u2.github AS comment_github
+    FROM posts AS p
+    INNER JOIN users AS u1 ON p.user_id = u1.id
+    LEFT JOIN comments AS c ON p.id = c.post_id
+    LEFT JOIN users AS u2 ON c.user_id = u2.id
+    WHERE p.id = :id
+  `;
+
   Post.findOne({
-    where: {
-      id: req.params.id,
-    },
-    attributes: ["id", "title", "created_at", "post_content"],
-    include: [
-      // include the Comment model here:
-      {
-        model: User,
-        attributes: ["username", "twitter", "github"],
-      },
-      {
-        model: Comment,
-        attributes: ["id", "comment_text", "post_id", "user_id", "created_at"],
-        include: {
-          model: User,
-          attributes: ["username", "twitter", "github"],
-        },
-      },
+    raw: true,
+    replacements: { id: req.params.id },
+    nest: true,
+    plain: true,
+    attributes: [
+      [sequelize.literal(query), "post"]
     ],
   })
     .then((dbPostData) => {
@@ -79,46 +84,49 @@ router.post("/", withAuth, (req, res) => {
     });
 });
 
-router.put('/:id', withAuth, (req, res) => {
-    Post.update({
-        title: req.body.title,
-        post_content: req.body.post_content
-      },
-      {
-        where: {
-          id: req.params.id
-        }
-      })
-      .then(dbPostData => {
-        if (!dbPostData) {
-          res.status(404).json({ message: 'No post found with this id' });
-          return;
-        }
-        res.json(dbPostData);
-      })
+router.put('/:id', withAuth, async (req, res) => {
+  try {
+    // Find the post in the database using the id specified in the request params
+    const post = await Post.findByPk(req.params.id);
+
+    // If no post was found, return a 404 response
+    if (!post) {
+      res.status(404).json({ message: 'No post found with this id' });
+      return;
+    }
+
+    // Update the post's title and post_content attributes with the values from the request body
+    post.title = req.body.title;
+    post.post_content = req.body.post_content;
+
+    // Save the updated post to the database
+    await post.save();
+
+    // Return the updated post data to the client
+    res.json(post);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json(err);
+  }
+});
+
+router.delete('/:id', withAuth, (req, res) => {
+  const postId = req.params.id;
+  Post.findOne({
+    where: {
+      id: postId
+    }
+  }).then(post => {
+    if (!post) {
+      return res.status(404).json({ message: 'No post found with this id' });
+    }
+    return post.destroy()
+      .then(() => res.json({ message: 'Post deleted' }))
       .catch(err => {
         console.log(err);
         res.status(500).json(err);
       });
   });
+});
 
-  router.delete('/:id', withAuth, (req, res) => {
-    Post.destroy({
-      where: {
-        id: req.params.id
-      }
-    })
-      .then(dbPostData => {
-        if (!dbPostData) {
-          res.status(404).json({ message: 'No post found with this id' });
-          return;
-        }
-        res.json(dbPostData);
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).json(err);
-      });
-  });
-
-  module.exports = router;
+module.exports = router;
